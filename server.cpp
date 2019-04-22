@@ -13,7 +13,12 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <bits/stdc++.h>
+#include <map>
+#include <set>
+#include <string>
+#include <deque>
+#include <sstream>
+#include <vector>
 
 #define MAX_LEN 1024
 using namespace std;
@@ -62,7 +67,7 @@ class chosen_topic_comp
 public:
     bool operator () ( const chosen_topic &a,const chosen_topic &b)
     {
-        return a.topic.compare(b.topic);
+        return a.topic<b.topic;
     }
 };
 
@@ -79,7 +84,7 @@ class Topic_root_comp
 public:
     bool operator () (const Topic_root &a,const Topic_root &b) const
     {
-        return a.nume.compare(b.nume);
+        return a.nume<b.nume;
     }
 };
 
@@ -118,19 +123,21 @@ void parse_command(int fd,char* buffer)
         Topic_root tr;
         tr.nr_del=0;
         tr.num_subs=1;
-        tr.crt_idx=0;
+        tr.crt_idx=-1;
         tr.nume=tokens[1];
         auto it=topics.find(tr);
 
         if(it==topics.end())
         {
             topics.insert(tr);
-            t.last_seen=0;
+            t.last_seen=-1;
         }
         else {
             it->num_subs = it->num_subs + 1;
             t.last_seen = it->crt_idx;
         }
+
+        printf("%d ma subscriu la %s\n",t.last_seen,tokens[1].c_str());
 
         t.topic = tokens[1];
         clientii[fd].subs.insert(t);
@@ -291,7 +298,18 @@ int main(int argc,char* args[])
                     }
                     buff[recv_m]='\0';
 
-                    if( clientii.find(new_sock)!=clientii.end()) break;
+                    if( clientii.find(new_sock)!=clientii.end())
+                    {
+                        printf("old client\n");
+                        for (auto it = clientii[new_sock].subs.begin(); it != clientii[new_sock].subs.end(); it++) {
+                            Topic_root tr;
+                            tr.nume = it->topic;
+                            auto it2 = topics.find(tr);
+                            if (it2 != topics.end())
+                                it->last_seen=it2->crt_idx;
+                          }
+                        break;
+                    }
                     clientii[new_sock].id=string(buff);
                     clientii[new_sock].adr=clint;
                     printf("New client %s connected from %s:%d\n",buff,inet_ntoa(clint.sin_addr),ntohs(clint.sin_port));
@@ -333,7 +351,7 @@ int main(int argc,char* args[])
                         top.nr_left=it->num_subs;
                         top.idx=it->crt_idx+1;
                         it->crt_idx=it->crt_idx+1;
-                        if(it->num_subs) it->dq.push_back(top);
+                        it->dq.push_back(top);
                     }
                     else {
                         top.idx=0;
@@ -373,21 +391,18 @@ int main(int argc,char* args[])
                 int ultimu_vazut;
                 Mesaj m;
                 daTrimis dtrim;
-                printf("%d\n",i);
+
                 for (auto it = clientii[i].subs.begin(); it != clientii[i].subs.end(); it++) {
 
-                    for(auto it3=topics.begin();it3!=topics.end();it3++)
-                        printf("%s ",it3->nume.c_str()); printf("\n");
-                        printf("%s\n",it->topic.c_str());
                     ultimu_vazut = it->last_seen;
 
                     Topic_root tr;
                     tr.nume = it->topic;
                     auto it2 = topics.find(tr);
-                    printf("%s %d\n",tr.nume.c_str(),it2==topics.end());
                     if(it2==topics.end() || it2->dq.empty()) continue;
 
                     if (it->sz == 0) {
+                        printf("%d %d\n",ultimu_vazut,it2->dq.back().idx);
                         if (it2->dq.back().idx != ultimu_vazut) {
                             m=it2->dq.back();
                             dtrim.adr=m.adr;
@@ -401,13 +416,14 @@ int main(int argc,char* args[])
                     } else {
                         printf("ultimu_vazut %d,nr_del %d and size %lu\n", ultimu_vazut, it2->nr_del, it2->dq.size());
                         for (j = ultimu_vazut - it2->nr_del + 1; j < it2->dq.size(); j++) {
-                            printf("%d %d %d\n", j, it2->dq[j].idx,ntohs(it2->dq[j].adr.sin_port));
-                            m=it2->dq.back();
+                            printf("%d %d %s %d\n", j, it2->dq[j].idx,it2->dq[j].continut,ntohs(it2->dq[j].adr.sin_port));
+                            m=it2->dq[j];
                             dtrim.adr=m.adr;
                             dtrim.len=m.len;
                             dtrim.tip_date=m.tip_date;
                             it->topic.copy(dtrim.nume,(int)it->topic.size(),0);
-                            memcpy(m.continut,dtrim.continut,m.len);
+                            printf("%s\n",dtrim.nume);
+                            memcpy(dtrim.continut,m.continut,m.len);
                             send(i, &dtrim, sizeof(dtrim), 0);
                             it->last_seen = it2->dq[j].idx;
                             it2->dq[j].nr_left--;
@@ -423,7 +439,6 @@ int main(int argc,char* args[])
                     }
                 }
             }
-        printf("iese\n");
     }
 
 iesi:
