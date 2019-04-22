@@ -13,7 +13,12 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <bits/stdc++.h>
+#include <map>
+#include <set>
+#include <string>
+#include <deque>
+#include <sstream>
+#include <vector>
 
 #define MAX_LEN 1024
 using namespace std;
@@ -62,7 +67,7 @@ class chosen_topic_comp
 public:
     bool operator () ( const chosen_topic &a,const chosen_topic &b)
     {
-        return a.topic.compare(b.topic);
+        return a.topic<b.topic;
     }
 };
 
@@ -79,7 +84,7 @@ class Topic_root_comp
 public:
     bool operator () (const Topic_root &a,const Topic_root &b) const
     {
-        return a.nume.compare(b.nume);
+        return a.nume<b.nume;
     }
 };
 
@@ -118,14 +123,14 @@ void parse_command(int fd,char* buffer)
         Topic_root tr;
         tr.nr_del=0;
         tr.num_subs=1;
-        tr.crt_idx=0;
+        tr.crt_idx=-1;
         tr.nume=tokens[1];
         auto it=topics.find(tr);
 
         if(it==topics.end())
         {
             topics.insert(tr);
-            t.last_seen=0;
+            t.last_seen=-1;
         }
         else {
             it->num_subs = it->num_subs + 1;
@@ -401,13 +406,14 @@ int main(int argc,char* args[])
                     } else {
                         printf("ultimu_vazut %d,nr_del %d and size %lu\n", ultimu_vazut, it2->nr_del, it2->dq.size());
                         for (j = ultimu_vazut - it2->nr_del + 1; j < it2->dq.size(); j++) {
-                            printf("%d %d %d\n", j, it2->dq[j].idx,ntohs(it2->dq[j].adr.sin_port));
-                            m=it2->dq.back();
+                            printf("%d %d %s %d\n", j, it2->dq[j].idx,it2->dq[j].continut,ntohs(it2->dq[j].adr.sin_port));
+                            m=it2->dq[j];
                             dtrim.adr=m.adr;
                             dtrim.len=m.len;
                             dtrim.tip_date=m.tip_date;
                             it->topic.copy(dtrim.nume,(int)it->topic.size(),0);
-                            memcpy(m.continut,dtrim.continut,m.len);
+                            printf("%s\n",dtrim.nume);
+                            memcpy(dtrim.continut,m.continut,m.len);
                             send(i, &dtrim, sizeof(dtrim), 0);
                             it->last_seen = it2->dq[j].idx;
                             it2->dq[j].nr_left--;
