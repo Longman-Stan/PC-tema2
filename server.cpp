@@ -57,7 +57,7 @@ struct Topic_root{
 
 struct chosen_topic
 {
-    char sz:1;
+    char sz;
     string topic;
     mutable int last_seen;
 };
@@ -110,7 +110,10 @@ void parse_command(int fd,char* buffer)
         if(tokens.size()==3)
         {
             if(tokens[2].size()!=1) { printf("invalid sz\n"); return; }
-            if( tokens[2][0]=='1') t.sz = 1;
+            if( tokens[2][0]=='1')
+            {
+                t.sz = 1;
+            }
             else {
                 if (tokens[2][0] == '0') t.sz = 0;
                 else {
@@ -136,8 +139,6 @@ void parse_command(int fd,char* buffer)
             it->num_subs = it->num_subs + 1;
             t.last_seen = it->crt_idx;
         }
-
-        printf("%d ma subscriu la %s\n",t.last_seen,tokens[1].c_str());
 
         t.topic = tokens[1];
         clientii[fd].subs.insert(t);
@@ -252,9 +253,9 @@ int main(int argc,char* args[])
     struct sockaddr_in clint;
     socklen_t client_length= sizeof(clint);
 
-    int i,j,counter=0;
+    int i,j;
     char buff[MAX_LEN];
-    int recv_m,sel,rd,new_sock,new_id;
+    int recv_m,sel,rd,new_sock;
 
     while(1)
     {
@@ -300,8 +301,8 @@ int main(int argc,char* args[])
 
                     if( clientii.find(new_sock)!=clientii.end())
                     {
-                        printf("old client\n");
                         for (auto it = clientii[new_sock].subs.begin(); it != clientii[new_sock].subs.end(); it++) {
+                            if(it->sz==1) continue;
                             Topic_root tr;
                             tr.nume = it->topic;
                             auto it2 = topics.find(tr);
@@ -322,7 +323,6 @@ int main(int argc,char* args[])
 
                     client_length=sizeof(clint);
                     recv_m = recvfrom(i,&t,sizeof(t),0,(struct sockaddr*)&clint,&client_length);
-                    printf("New message from%s:%d\n",inet_ntoa(clint.sin_addr),ntohs(clint.sin_port));
                     if(recv_m<0)
                     {
                         perror("error while receiving from udp\n");
@@ -334,11 +334,6 @@ int main(int argc,char* args[])
                     top.adr=clint;
                     memcpy(top.continut,t.continut,1500);
                     top.tip_date=t.tip_date;
-
-
-                    printf("mesaj %s cu tipul %d si continut \n",t.topic,t.tip_date);
-                  //  for(i=0;i<recv_m-51;i++)
-                    //    printf("%d ",t.continut[i]); printf("\n");
 
                     Topic_root tr;
                     tr.num_subs=0;
@@ -360,8 +355,6 @@ int main(int argc,char* args[])
                         topics.insert(tr);
 
                     }
-                  //  for(it=topics.begin();it!=topics.end();it++)
-                    //    printf("%s\n",it->nume.c_str());
                     break;
                 }
 
@@ -414,9 +407,8 @@ int main(int argc,char* args[])
                             it->last_seen = it2->dq.back().idx;
                         }
                     } else {
-                        printf("ultimu_vazut %d,nr_del %d and size %lu\n", ultimu_vazut, it2->nr_del, it2->dq.size());
+                        printf("ultimu_vazut de %s %d,nr_del %d and size %lu\n",clientii[i].id.c_str(),ultimu_vazut, it2->nr_del, it2->dq.size());
                         for (j = ultimu_vazut - it2->nr_del + 1; j < it2->dq.size(); j++) {
-                            printf("%d %d %s %d\n", j, it2->dq[j].idx,it2->dq[j].continut,ntohs(it2->dq[j].adr.sin_port));
                             m=it2->dq[j];
                             dtrim.adr=m.adr;
                             dtrim.len=m.len;

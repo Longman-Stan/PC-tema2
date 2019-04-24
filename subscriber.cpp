@@ -118,6 +118,7 @@ int main(int argc,char* argv[])
         uint32_t nr1;
         uint32_t modulu;
         uint8_t p;
+        int nrcif,aux;
 
         if(FD_ISSET(sockfd, &tmp_set))
         {
@@ -142,15 +143,26 @@ int main(int argc,char* argv[])
                 case 1:
                     memcpy(&nr1,m.continut,sizeof(uint16_t));
                     nr1=ntohs(nr1);
-                    printf( "SHORT_REAL - %u.%u\n",nr1/100,nr1%100);
+                    if((nr1/10)%10==0) printf( "SHORT_REAL - %u.0%u\n",nr1/100,nr1%10);
+                    else printf( "SHORT_REAL - %u.%u\n",nr1/100,nr1%100);
                     break;
                 case 2:
                     memcpy(&modulu,m.continut+1,sizeof(uint32_t));
                     modulu=ntohl(modulu);
                     memcpy(&p,m.continut+sizeof(uint32_t)+1,sizeof(uint8_t));
+                    nrcif=0;
+                    aux=modulu;
+                    while(aux) {nrcif++; aux/=10;}
+                    if( nrcif<p)
+                    {
+                        printf("0.");
+                        while(p>nrcif) { printf("0"); p--;}
+                        printf("%u\n",modulu);
+                        break;
+                    }
                     put=1; while(p) { p--; put*=10;}
-                    if(m.continut[0]==1) printf("FLOAT - -%g\n",(double)modulu/put);
-                    else printf("FLOAT - %g\n",(double)modulu/put);
+                    if(m.continut[0]==1) printf("FLOAT - -%.14g\n",(double)modulu/put);
+                    else printf("FLOAT - %.14g\n",(double)modulu/put);
                     break;
                 case 3:
                     printf("STRING -");
